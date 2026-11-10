@@ -1,16 +1,18 @@
-# Bench 225 (bench-press-app)
+# Weight Training (weight-training)
+
+Started as "Bench 225" (renamed 2026-11-09). The goal is still a 225 lb bench, and the icon still shows 225.
 
 A private bench press program app for Jason and his son, one iPhone each. It's a static web app that you add to the Home Screen. There's no backend, and each phone keeps its own log in `localStorage`.
 
-- Live: https://jkobs.github.io/bench-tracker/
-- Repo: `jkobs/bench-tracker` (public, branch `main`). GitHub Pages serves the repo root, and every push to `main` redeploys in about a minute.
+- Live: https://jkobs.github.io/weight-training/
+- Repo: `jkobs/weight-training` (public, branch `main`). GitHub Pages serves the repo root, and every push to `main` redeploys in about a minute.
 
 ## How it fits together
 
 ```mermaid
 flowchart LR
-    dev["index.html (this folder)"] -->|git push main| gh["GitHub jkobs/bench-tracker"]
-    gh -->|Pages build ~1 min| site["jkobs.github.io/bench-tracker"]
+    dev["index.html (this folder)"] -->|git push main| gh["GitHub jkobs/weight-training"]
+    gh -->|Pages build ~1 min| site["jkobs.github.io/weight-training"]
     site -->|Safari, Add to Home Screen| p1["Jason's iPhone<br/>own localStorage log"]
     site --> p2["Son's iPhone<br/>own localStorage log"]
     sw["sw.js: network first,<br/>cache fallback"] -.-> p1

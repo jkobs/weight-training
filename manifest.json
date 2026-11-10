@@ -1,6 +1,6 @@
 {
-  "name": "Bench 225",
-  "short_name": "Bench 225",
+  "name": "Weight Training",
+  "short_name": "Weight Training",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

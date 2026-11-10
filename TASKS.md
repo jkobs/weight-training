@@ -1,4 +1,4 @@
-# Bench 225 app
+# Weight Training app
 
 ## Phase 1: Build
 - [x] Write the 4-week bench program
@@ -9,10 +9,18 @@
 ## Phase 2: Install
 - [x] Wi-Fi test (phone never reached the Mac; replaced by private Claude link)
 - [x] Private Claude link test (deleted after the permanent link went live)
-- [x] Published: https://jkobs.github.io/bench-tracker/ (repo jkobs/bench-tracker)
+- [x] Published: https://jkobs.github.io/weight-training/ (repo jkobs/weight-training)
 - [~] Install on both iPhones
 
 ## Phase 3: Goal and length
 - [x] Target weight and program length (4, 8, 12 or 16 weeks) with outlook estimate
 - [x] Local tests: 16 + 16 checks pass
 - [x] Pushed live
+
+## Phase 4: Rename to Weight Training
+- [~] App name, Home Screen label, cache name, docs
+- [ ] Rename repo to jkobs/weight-training (new live address)
+- [ ] Rename local folder to weight-training
+
+## Phase 5: Progress chart
+- [ ] Plan the chart

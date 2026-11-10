@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Bench 225</title>
+<title>Weight Training</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Bench 225">
+<meta name="apple-mobile-web-app-title" content="Weight Training">
 <meta name="theme-color" content="#0f1115">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -212,7 +212,7 @@ function render() {
 // ---- Setup ----
 function setupView(prefill) {
   return `
-  <h1>Bench 225</h1>
+  <h1>Weight Training</h1>
   <p class="sub">Pick a target and a length. The program runs in 4-week blocks, each ending with a max test that sets the next block's weights, so each person gets their own numbers.</p>
   <div class="card">
     <label for="name">Your name</label>
@@ -447,7 +447,7 @@ function bindProgress() {
       const s = JSON.parse(t.value);
       if (!s || typeof s.max !== "number" || !s.log || !s.history) throw 0;
       confirmTap($("#restoreBk"), `Tap again to replace with ${s.name}'s backup`, () => { state = s; save(); render(); toast("Backup restored."); });
-    } catch { toast("That doesn't look like a Bench 225 backup."); }
+    } catch { toast("That doesn't look like a Weight Training backup."); }
   };
   $("#reset").onclick = () => confirmTap($("#reset"), "Tap again to erase everything", () => {
     try { localStorage.removeItem(KEY); } catch {}
