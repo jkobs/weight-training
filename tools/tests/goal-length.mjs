@@ -1,0 +1,48 @@
+import { chromium } from "/Users/jasonkobs/Library/CloudStorage/OneDrive-Personal/Claude-Projects/solunar-fishing-app/node_modules/playwright/index.mjs";
+const [app, out] = process.argv.slice(2), url = "file://" + app + "/index.html";
+const fails = []; const ok = (c, m) => { if (!c) fails.push(m); console.log((c ? "PASS " : "FAIL ") + m); };
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
+const txt = () => p.textContent("#app");
+const finishBlock = async (testMax) => {
+  for (let i = 0; i < 11; i++) await p.click("#finish");
+  await p.fill("#testMax", String(testMax)); await p.dispatchEvent("#testMax", "change"); await p.click("#finish");
+};
+await p.goto(url);
+// Setup: goal + length
+ok(await p.isVisible("#goal") && (await p.inputValue("#goal")) === "225", "Setup has target field, default 225");
+ok((await p.getAttribute('[data-weeks="8"]', "aria-checked")) === "true", "8 weeks selected by default");
+await p.fill("#name", "Dad"); await p.fill("#w", "135"); await p.fill("#r", "8"); await p.dispatchEvent("#r", "input");
+ok((await p.textContent("#outlook")).includes("191") && (await p.textContent("#outlook")).includes("24 weeks"), "8 weeks from 171: ~191 typical, 225 takes ~24 weeks");
+await p.click('[data-weeks="16"]');
+ok((await p.textContent("#outlook")).includes("211"), "16 weeks projects ~211");
+await p.screenshot({ path: `${out}/goal-setup.png`, fullPage: true });
+await p.fill("#goal", "150"); await p.click("#start");
+ok((await p.textContent("#outlook")).includes("above your current max"), "Rejects a goal below current max");
+await p.fill("#goal", "200"); await p.click('[data-weeks="8"]'); await p.click("#start");
+ok((await txt()).includes("Week 1 of 8") && (await txt()).includes("goal 200"), "Today shows Week 1 of 8 and goal 200");
+await finishBlock(180);
+ok((await txt()).includes("Week 5 of 8") && (await txt()).includes("140 lb × 5"), "After test 180: Week 5 of 8, heavy 140 × 5");
+await p.click('nav button[data-tab="program"]');
+ok((await txt()).includes("Weeks 5–8 of 8") && (await txt()).includes("Week 8"), "Program grid labeled weeks 5–8");
+await p.click('nav button[data-tab="progress"]');
+ok((await txt()).includes("12 of 24 workouts") && (await txt()).includes("20 lb to go"), "Progress: 12 of 24 workouts, 20 lb to go");
+await p.click('[data-len="4"]');
+ok((await p.textContent("#toast")).includes("shortest option is 8"), "Can't shorten below the current block");
+await p.fill("#newGoal", "225"); await p.click("#saveGoal");
+ok((await txt()).includes("45 lb to go"), "Goal change to 225 saved");
+await p.screenshot({ path: `${out}/goal-progress.png`, fullPage: true });
+await p.click('nav button[data-tab="today"]');
+await finishBlock(200);
+ok((await txt()).includes("Program complete"), "After week 8 test: program complete");
+await p.click('nav button[data-tab="progress"]'); await p.click('[data-len="12"]');
+await p.click('nav button[data-tab="today"]');
+ok((await txt()).includes("Week 9 of 12"), "Extending to 12 weeks resumes at week 9");
+// Old saved data (before goal/length) still loads
+await p.evaluate(() => localStorage.setItem("bench225-v1", JSON.stringify({ name: "Son", max: 150, block: 1, startMax: 150, log: {}, history: [{ block: 1, max: 150, date: new Date().toISOString(), source: "x" }] })));
+await p.reload();
+ok((await txt()).includes("Week 1 of 4") && (await txt()).includes("goal 225"), "Old save migrates to 4 weeks, goal 225");
+ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "No horizontal scroll");
+ok(!errs.length, "No page errors " + errs.join("; "));
+await b.close(); console.log(fails.length ? fails.length + " FAILED" : "ALL PASSED");

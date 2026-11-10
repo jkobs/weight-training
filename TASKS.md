@@ -8,7 +8,7 @@
 
 ## Phase 2: Install
 - [x] Wi-Fi test (phone never reached the Mac; replaced by private Claude link)
-- [x] Private Claude link test: https://claude.ai/artifact/PHyRuymfSKJUa76J3FJABL
+- [x] Private Claude link test (deleted after the permanent link went live)
 - [x] Published: https://jkobs.github.io/bench-tracker/ (repo jkobs/bench-tracker)
 - [~] Install on both iPhones
 

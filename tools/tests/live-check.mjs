@@ -1,0 +1,10 @@
+import { chromium } from "/Users/jasonkobs/Library/CloudStorage/OneDrive-Personal/Claude-Projects/solunar-fishing-app/node_modules/playwright/index.mjs";
+const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+const errs = []; p.on("pageerror", e => errs.push(e.message));
+await p.goto("https://jkobs.github.io/bench-tracker/");
+await p.fill("#name", "Dad"); await p.fill("#w", "135"); await p.fill("#r", "8"); await p.click("#start");
+console.log("week1 heavy 135x5:", (await p.textContent("#app")).includes("135 lb × 5"));
+await p.waitForFunction(() => navigator.serviceWorker.controller || navigator.serviceWorker.ready.then(() => true), null, { timeout: 15000 }).catch(() => {});
+console.log("service worker registered:", await p.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())));
+await p.reload(); console.log("data kept after reload:", (await p.textContent("#app")).includes("Heavy"));
+console.log("errors:", errs.length ? errs : "none"); await b.close();
