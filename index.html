@@ -311,6 +311,8 @@ function todayView() {
   <button class="btn ${log.done ? "secondary" : ""}" id="finish">${log.done ? "Done ✓ (tap to reopen)" : day.test ? "Finish and start next block" : "Finish workout"}</button>
   <p class="note" style="margin-top:12px">${day.test ? "" : "Tap a set's circle when you finish it; the rest timer starts. Change the reps box if you got fewer than planned."}</p>`;
 }
+// Saved on Finish so the chart can date workouts and keep the weights used then, even after the max changes
+function stamp(log, sets) { log.done = true; log.at = new Date().toISOString(); log.w = sets.map(x => x.w); }
 function amrapNote(log, sets) {
   const i = sets.findIndex(x => x.amrap), r = +(log.sets[i]?.reps || 0);
   if (!r) return "Do as many clean reps as you can. 10 or more means you're on pace for a big test day.";
@@ -341,7 +343,7 @@ function bindSession() {
     if (day.test) {
       const m = +(log.testMax || 0);
       if (!(m >= BAR)) { toast("Enter your heaviest clean single first."); return; }
-      log.done = true;
+      stamp(log, sets);
       state.block += 1; state.max = Math.round(m);
       state.history.push({ block: state.block, max: state.max, date: new Date().toISOString(), source: "max test" });
       save(); viewing = null; stopTimer();
@@ -351,7 +353,7 @@ function bindSession() {
         : `New max ${state.max} lb. Weeks ${overallWeek(1)}–${overallWeek(BLOCK_WEEKS)} are ready.${hit}`);
       return;
     }
-    log.done = true; save(); viewing = null; stopTimer(); render();
+    stamp(log, sets); save(); viewing = null; stopTimer(); render();
   };
 }
 
@@ -378,6 +380,57 @@ function bindProgram() {
 }
 
 // ---- Progress ----
+// ---- Progress chart ----
+// Estimated max from finished workouts, only where a set beat the plan (week 3 max-reps sets, or more reps than planned).
+// Normal sets sit below the max on purpose, so they would read as going backward.
+function workoutEstimates() {
+  const out = [];
+  for (const [id, log] of Object.entries(state.log)) {
+    const m = /^b\d+w(\d)d(\d)$/.exec(id), day = m && PROGRAM[m[1] - 1]?.days[m[2] - 1];
+    if (!day || day.test || !log.done || !log.at || !log.w) continue;
+    let best = 0;
+    log.w.forEach((w, i) => {
+      const r = +(log.sets[i]?.reps || 0), amrap = day.amrap && i === day.sets;
+      if (r && (amrap || r > day.reps)) best = Math.max(best, epley(w, r));
+    });
+    if (best) out.push({ t: Date.parse(log.at), v: Math.round(best) });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+function chartView() {
+  const DAY = 864e5, W = 326, H = 190, L = 34, R = 8, T = 10, B = 24;
+  const maxes = state.history.map(h => ({ t: Date.parse(h.date), v: h.max })).sort((a, b) => a.t - b.t);
+  const dots = workoutEstimates();
+  const now = Math.max(Date.now(), maxes.at(-1).t);
+  const weeksLeft = Math.max(0, state.weeks - (state.block - 1) * BLOCK_WEEKS);
+  const outlook = weeksLeft ? [{ t: now, v: state.max }, { t: now + weeksLeft * 7 * DAY, v: projection(state.max, weeksLeft) }] : [];
+  const all = [...maxes, ...dots, ...outlook];
+  const t0 = maxes[0].t, t1 = Math.max(t0 + 7 * DAY, ...all.map(p => p.t));
+  const lo = Math.floor((Math.min(...all.map(p => p.v)) - 5) / 10) * 10;
+  const hi = Math.ceil((Math.max(state.goal, ...all.map(p => p.v)) + 5) / 10) * 10;
+  const x = t => (L + (t - t0) / (t1 - t0) * (W - L - R)).toFixed(1);
+  const y = v => (T + (hi - v) / (hi - lo) * (H - T - B)).toFixed(1);
+  // Max line is a step: each max holds until the next test or change
+  let step = `M${x(maxes[0].t)},${y(maxes[0].v)}`;
+  maxes.slice(1).forEach(p => { step += ` H${x(p.t)} V${y(p.v)}`; });
+  step += ` H${x(now)}`;
+  const ticks = [lo, Math.round((lo + hi) / 20) * 10, hi];
+  const day = t => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return `<div class="card"><b>Max over time</b>
+    <svg id="chart" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Max over time, ${state.max} lb now, goal ${state.goal} lb" style="display:block;margin-top:8px">
+      ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v)}" dy="4" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`).join("")}
+      <line x1="${L}" x2="${W - R}" y1="${y(state.goal)}" y2="${y(state.goal)}" stroke="var(--muted)" stroke-dasharray="5 4"/>
+      <text x="${W - R}" y="${y(state.goal)}" dy="14" text-anchor="end" font-size="11" fill="var(--muted)">Goal ${state.goal}</text>
+      ${outlook.length ? `<line class="outlook" x1="${x(outlook[0].t)}" y1="${y(outlook[0].v)}" x2="${x(outlook[1].t)}" y2="${y(outlook[1].v)}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round" opacity=".7"/>` : ""}
+      <path class="maxline" d="${step}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${maxes.map(p => `<circle class="maxpt" cx="${x(p.t)}" cy="${y(p.v)}" r="4" fill="var(--accent)"/>`).join("")}
+      ${dots.map(p => `<circle class="est" cx="${x(p.t)}" cy="${y(p.v)}" r="4" fill="var(--bg)" stroke="var(--good)" stroke-width="2"><title>${p.v} lb estimate</title></circle>`).join("")}
+      <text x="${L}" y="${H - 6}" font-size="11" fill="var(--muted)">${day(t0)}</text>
+      <text x="${W - R}" y="${H - 6}" text-anchor="end" font-size="11" fill="var(--muted)">${day(t1)}</text>
+    </svg>
+    <p class="note" style="margin:6px 0 0"><span style="color:var(--accent)">●</span> Max &nbsp;<span style="color:var(--good)">○</span> Workout estimate (you beat the plan)${outlook.length ? ` &nbsp;<span style="color:var(--accent)">┈</span> Outlook, about ${GAIN_PER_BLOCK} lb per block (estimate)` : ""}</p>
+  </div>`;
+}
 function progressView() {
   const finished = state.block > totalBlocks();
   const doneHere = finished ? 0 : allSessions().filter(s => state.log[sid(s.week, s.d)]?.done).length;
@@ -391,6 +444,7 @@ function progressView() {
     <div class="bar" style="margin-top:10px"><div style="width:${pct}%"></div></div>
     <p class="note">${state.max >= state.goal ? "Goal reached." : `${state.goal - state.max} lb to go. ${weeksLeft ? outlook(state.max, state.goal, weeksLeft).replace(`after ${weeksLeft} weeks`, `after the ${weeksLeft} weeks left`) : ""}`}</p>
   </div>
+  ${chartView()}
   <div class="card"><div class="row spread"><b>${state.weeks}-week program</b><span class="muted">${done} of ${total} workouts</span></div>
     <div class="bar" style="margin-top:10px"><div style="width:${done / total * 100}%"></div></div></div>
   <div class="card"><b>Max history</b>

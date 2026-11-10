@@ -40,7 +40,7 @@ flowchart LR
 ## Rules
 
 - Don't use `alert`, `confirm` or `prompt`. Use `toast()` and the two-tap `confirmTap()`, which also work inside a Claude artifact.
-- Run both test suites before pushing:
-  `node tools/tests/core.mjs "$PWD" <shots-dir>` and `node tools/tests/goal-length.mjs "$PWD" <shots-dir>`. After deploying, run `node tools/tests/live-check.mjs`.
+- Run all three test suites before pushing:
+  `core.mjs`, `goal-length.mjs` and `chart.mjs`, each as `node tools/tests/<name> "$PWD" <shots-dir>`. After deploying, run `node tools/tests/live-check.mjs`.
 - Ask Jason before pushing. A push goes live on both phones right away.
 - Workout logs never leave the phones. Don't add analytics or any network calls with user data.

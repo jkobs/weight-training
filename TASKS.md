@@ -18,9 +18,13 @@
 - [x] Pushed live
 
 ## Phase 4: Rename to Weight Training
-- [~] App name, Home Screen label, cache name, docs
-- [ ] Rename repo to jkobs/weight-training (new live address)
+- [x] App name, Home Screen label, cache name, docs
+- [x] Rename repo to jkobs/weight-training (live, old address 404s)
 - [ ] Rename local folder to weight-training
 
 ## Phase 5: Progress chart
-- [ ] Plan the chart
+- [x] Plan the chart
+- [x] On Finish, save the date and each set's weight (new fields, same key, no migration)
+- [x] Inline SVG chart on Progress: max line, goal line, dotted outlook, workout estimate dots
+- [x] New test tools/tests/chart.mjs (13 checks), plus both existing suites
+- [x] Pushed live

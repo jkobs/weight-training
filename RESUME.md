@@ -9,4 +9,4 @@
 - Possible next features: more lifts (squat, deadlift), sharing progress between the two phones (that needs a backend; they chose no sharing for now).
 
 **Resume prompt:**
-> Continue the Weight Training app in `Claude-Projects/weight-training`. Read `CLAUDE.md` and `TASKS.md` first. It's live at https://jkobs.github.io/weight-training/ from repo `jkobs/weight-training`. Run both test suites in `tools/tests` before pushing, and ask me before any push.
+> Continue the Weight Training app in `Claude-Projects/weight-training`. Read `CLAUDE.md` and `TASKS.md` first. It's live at https://jkobs.github.io/weight-training/ from repo `jkobs/weight-training`. Run the test suites in `tools/tests` before pushing, and ask me before any push.
