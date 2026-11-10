@@ -123,12 +123,29 @@ const PROGRAM = [
 ];
 // Max-test ladder: [fraction of max, reps]; the last two are optional attempts
 const TEST_LADDER = [[0.56, 5], [0.79, 3], [0.91, 1], [1.0, 1], [1.06, 1], [1.09, 1], [1.12, 1]];
-const GOAL = 225, BAR = 45;
+const BAR = 45, BLOCK_WEEKS = 4;
+const DURATIONS = [4, 8, 12, 16];
+// Rough planning figure for a lifter at this level: about 10 lb per 4-week block
+const GAIN_PER_BLOCK = 10;
 const KEY = "bench225-v1";
 
 // ---- Storage ----
 function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s) { s.goal ??= 225; s.weeks ??= 4; } // saves from before goal and length existed
+    return s || null;
+  } catch { return null; }
+}
+const totalBlocks = () => state.weeks / BLOCK_WEEKS;
+const overallWeek = w => (state.block - 1) * BLOCK_WEEKS + w;
+function projection(max, weeks) { return max + Math.round(weeks / BLOCK_WEEKS) * GAIN_PER_BLOCK; }
+function weeksNeeded(max, goal) { return goal <= max ? 0 : Math.ceil((goal - max) / GAIN_PER_BLOCK) * BLOCK_WEEKS; }
+function outlook(max, goal, weeks) {
+  const proj = projection(max, weeks), need = weeksNeeded(max, goal);
+  if (goal <= max) return `You're already at ${goal}. Set a higher goal.`;
+  if (proj >= goal) return `On track: about ${proj} lb is typical after ${weeks} weeks, so ${goal} is realistic.`;
+  return `About ${proj} lb is typical after ${weeks} weeks. ${goal} usually takes about ${need} weeks.`;
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
@@ -196,7 +213,7 @@ function render() {
 function setupView(prefill) {
   return `
   <h1>Bench 225</h1>
-  <p class="sub">A 4-week bench block. Weights are set from your current strength, so each person gets their own numbers.</p>
+  <p class="sub">Pick a target and a length. The program runs in 4-week blocks, each ending with a max test that sets the next block's weights, so each person gets their own numbers.</p>
   <div class="card">
     <label for="name">Your name</label>
     <input id="name" autocomplete="off" value="${esc(prefill?.name || "")}" placeholder="e.g. Dad">
@@ -207,28 +224,51 @@ function setupView(prefill) {
       <input id="r" type="number" inputmode="numeric" placeholder="Reps" value="${prefill?.r || ""}" style="max-width:90px">
     </div>
     <p class="note" id="est">Example: 135 × 8. Use a set of 10 reps or fewer for the best estimate.</p>
+    <label for="goal">Target bench (lb)</label>
+    <input id="goal" type="number" inputmode="decimal" value="225">
+    <label for="weeks">Program length</label>
+    <div class="row" id="weeks" role="radiogroup" style="flex-wrap:wrap">
+      ${DURATIONS.map(d => `<button class="btn small ${d === 8 ? "" : "secondary"}" data-weeks="${d}" role="radio" aria-checked="${d === 8}">${d} weeks</button>`).join("")}
+    </div>
+    <p class="note" id="outlook"></p>
     <button class="btn" id="start">Build my program</button>
   </div>
   <p class="note">Data stays on this phone only. Use a spotter or safety pins on heavy days and the max test.</p>`;
 }
 function bindSetup() {
+  let weeks = 8;
   const upd = () => {
-    const w = +$("#w").value, r = +$("#r").value;
-    if (w > 0 && r > 0) $("#est").textContent = `Estimated 1-rep max: ${Math.round(epley(w, r))} lb`;
+    const w = +$("#w").value, r = +$("#r").value, goal = +$("#goal").value;
+    if (w > 0 && r > 0) {
+      const max = Math.round(epley(w, r));
+      $("#est").textContent = `Estimated 1-rep max: ${max} lb`;
+      $("#outlook").textContent = goal > 0 ? outlook(max, goal, weeks) : "";
+    }
   };
-  $("#w").oninput = upd; $("#r").oninput = upd;
+  $("#w").oninput = upd; $("#r").oninput = upd; $("#goal").oninput = upd;
+  document.querySelectorAll("[data-weeks]").forEach(b => b.onclick = () => {
+    weeks = +b.dataset.weeks;
+    document.querySelectorAll("[data-weeks]").forEach(x => {
+      const on = x === b; x.classList.toggle("secondary", !on); x.setAttribute("aria-checked", on);
+    });
+    upd();
+  });
   $("#start").onclick = () => {
     const name = $("#name").value.trim() || "Lifter";
-    const w = +$("#w").value, r = +$("#r").value;
+    const w = +$("#w").value, r = +$("#r").value, goal = Math.round(+$("#goal").value);
     if (!(w >= BAR) || !(r >= 1 && r <= 15)) { $("#est").textContent = "Enter a weight of at least 45 lb and 1–15 reps."; return; }
     const max = Math.round(epley(w, r));
-    state = { name, max, block: 1, startMax: max, log: {}, history: [{ block: 1, max, date: new Date().toISOString(), source: `${w} × ${r}` }] };
+    if (!(goal > max)) { $("#outlook").textContent = `Set a target above your current max of ${max} lb.`; return; }
+    state = { name, max, goal, weeks, block: 1, startMax: max, log: {}, history: [{ block: 1, max, date: new Date().toISOString(), source: `${w} × ${r}` }] };
     save(); tab = "today"; render();
   };
 }
 
 // ---- Session (Today) ----
 function todayView() {
+  if (state.block > totalBlocks()) return `<h1>Program complete</h1>
+    <p class="sub">${state.weeks} weeks done. Max ${state.startMax} → ${state.max} lb${state.max >= state.goal ? `: you hit ${state.goal}!` : `, goal ${state.goal}.`}</p>
+    <div class="card note">Add more weeks or set a new goal in Progress to keep going.</div>`;
   const s = viewing || nextSession();
   if (!s) return `<h1>Block ${state.block} done</h1><p class="sub">Log your max test result in Progress to start the next block.</p>`;
   const { week, d, day } = s;
@@ -239,11 +279,11 @@ function todayView() {
   const warm = day.test ? [] : warmups(topWork);
   return `
   <div class="row spread" style="margin-top:18px">
-    <span class="tag">Block ${state.block} · Week ${week} · Day ${d}</span>
+    <span class="tag">Week ${overallWeek(week)} of ${state.weeks} · Day ${d}</span>
     ${viewing && !isNext ? `<button class="btn small secondary" id="backNext">Go to next</button>` : ""}
   </div>
   <h1>${esc(day.name)}${day.paused ? " · 2-sec pause" : ""}</h1>
-  <p class="sub">${esc(state.name)} · max ${state.max} lb${day.test ? "" : ` · rest ${Math.round(day.rest / 60 * 10) / 10} min`}</p>
+  <p class="sub">${esc(state.name)} · max ${state.max} → goal ${state.goal} lb${day.test ? "" : ` · rest ${Math.round(day.rest / 60 * 10) / 10} min`}</p>
   ${day.test ? `<div class="card note">Rest 3–4 minutes between singles. Stop at the first slow, grinding rep, and log the heaviest clean single below. The last two are optional: only try them if the one before moved fast.</div>` : ""}
   ${warm.length ? `<div class="card"><b>Warm-up</b><p class="note" style="margin:6px 0 0">${warm.map(([w, r]) => `${w} × ${r}`).join(" · ")}</p></div>` : ""}
   <div class="card">
@@ -277,6 +317,7 @@ function amrapNote(log, sets) {
   return `${sets[i].w} × ${r} estimates your max at about ${Math.round(epley(sets[i].w, r))} lb.`;
 }
 function bindSession() {
+  if (state.block > totalBlocks()) return;
   const s = viewing || nextSession(); if (!s) return;
   const id = sid(s.week, s.d), log = sessionLog(id), day = s.day;
   const sets = setsFor(day);
@@ -305,7 +346,9 @@ function bindSession() {
       state.history.push({ block: state.block, max: state.max, date: new Date().toISOString(), source: "max test" });
       save(); viewing = null; stopTimer();
       render();
-      toast(`New max ${state.max} lb. Block ${state.block} is ready${state.max >= GOAL ? ", and you hit 225!" : "."}`);
+      const hit = state.max >= state.goal ? ` You hit ${state.goal}!` : "";
+      toast(state.block > totalBlocks() ? `New max ${state.max} lb. Program complete.${hit}`
+        : `New max ${state.max} lb. Weeks ${overallWeek(1)}–${overallWeek(BLOCK_WEEKS)} are ready.${hit}`);
       return;
     }
     log.done = true; save(); viewing = null; stopTimer(); render();
@@ -315,8 +358,9 @@ function bindSession() {
 // ---- Program grid ----
 function programView() {
   const nx = nextSession(), nxId = nx && sid(nx.week, nx.d);
-  return `<h1>Block ${state.block}</h1><p class="sub">Tap any day to open it. Weights use your max of ${state.max} lb.</p>
-  ${PROGRAM.map(wk => `<h2>Week ${wk.week}</h2><div class="grid">
+  if (state.block > totalBlocks()) return `<h1>Program complete</h1><p class="sub">Add more weeks in Progress to keep going.</p>`;
+  return `<h1>Weeks ${overallWeek(1)}–${overallWeek(BLOCK_WEEKS)} of ${state.weeks}</h1><p class="sub">Tap any day to open it. Weights use your max of ${state.max} lb. Week ${overallWeek(BLOCK_WEEKS)} ends with a max test that sets the next weeks' weights.</p>
+  ${PROGRAM.map(wk => `<h2>Week ${overallWeek(wk.week)}</h2><div class="grid">
     ${wk.days.map((day, i) => {
       const id = sid(wk.week, i + 1), done = state.log[id]?.done;
       const label = day.test ? "Work up to a max" : `${day.sets}×${day.reps} @ ${roundTo5(state.max * day.pct)}`;
@@ -335,17 +379,20 @@ function bindProgram() {
 
 // ---- Progress ----
 function progressView() {
-  const done = allSessions().filter(s => state.log[sid(s.week, s.d)]?.done).length;
-  const span = GOAL - state.startMax, pct = span > 0 ? Math.min(100, Math.max(0, (state.max - state.startMax) / span * 100)) : 100;
+  const finished = state.block > totalBlocks();
+  const doneHere = finished ? 0 : allSessions().filter(s => state.log[sid(s.week, s.d)]?.done).length;
+  const total = state.weeks * 3, done = Math.min(total, (Math.min(state.block, totalBlocks() + 1) - 1) * 12 + doneHere);
+  const span = state.goal - state.startMax, pct = span > 0 ? Math.min(100, Math.max(0, (state.max - state.startMax) / span * 100)) : 100;
+  const weeksLeft = Math.max(0, state.weeks - (state.block - 1) * BLOCK_WEEKS);
   return `<h1>${esc(state.name)}</h1>
   <div class="card">
     <div class="row spread"><span class="muted">Current max</span><span class="muted">Goal</span></div>
-    <div class="row spread"><span class="big">${state.max}</span><span class="big muted">${GOAL}</span></div>
+    <div class="row spread"><span class="big">${state.max}</span><span class="big muted">${state.goal}</span></div>
     <div class="bar" style="margin-top:10px"><div style="width:${pct}%"></div></div>
-    <p class="note">${state.max >= GOAL ? "Goal reached." : `${GOAL - state.max} lb to go. A good block usually adds about 10–20 lb.`}</p>
+    <p class="note">${state.max >= state.goal ? "Goal reached." : `${state.goal - state.max} lb to go. ${weeksLeft ? outlook(state.max, state.goal, weeksLeft).replace(`after ${weeksLeft} weeks`, `after the ${weeksLeft} weeks left`) : ""}`}</p>
   </div>
-  <div class="card"><div class="row spread"><b>Block ${state.block}</b><span class="muted">${done} of 12 workouts</span></div>
-    <div class="bar" style="margin-top:10px"><div style="width:${done / 12 * 100}%"></div></div></div>
+  <div class="card"><div class="row spread"><b>${state.weeks}-week program</b><span class="muted">${done} of ${total} workouts</span></div>
+    <div class="bar" style="margin-top:10px"><div style="width:${done / total * 100}%"></div></div></div>
   <div class="card"><b>Max history</b>
     <table><tr><th>Block</th><th>Max</th><th>Date</th><th>From</th></tr>
     ${state.history.map(h => `<tr><td>${h.block}</td><td>${h.max}</td><td>${new Date(h.date).toLocaleDateString()}</td><td class="muted">${esc(h.source)}</td></tr>`).join("")}
@@ -359,6 +406,13 @@ function progressView() {
     <label for="newMax">Change current max (lb)</label>
     <div class="row"><input id="newMax" type="number" inputmode="decimal" value="${state.max}"><button class="btn small" id="saveMax">Save</button></div>
     <p class="note">Lower it by 10 lb if the heavy days feel like grinders.</p>
+    <label for="newGoal">Target bench (lb)</label>
+    <div class="row"><input id="newGoal" type="number" inputmode="decimal" value="${state.goal}"><button class="btn small" id="saveGoal">Save</button></div>
+    <label>Program length</label>
+    <div class="row" style="flex-wrap:wrap">
+      ${DURATIONS.map(d => `<button class="btn small ${d === state.weeks ? "" : "secondary"}" data-len="${d}" aria-pressed="${d === state.weeks}">${d} weeks</button>`).join("")}
+    </div>
+    <p class="note">You're in week ${Math.min(state.weeks, overallWeek(1))}. A length can't be shorter than the 4-week block you're in.</p>
     <button class="btn secondary" id="reset" style="margin-top:8px">Start over</button>
   </div>`;
 }
@@ -368,6 +422,19 @@ function bindProgress() {
     state.max = Math.round(m); state.history.push({ block: state.block, max: state.max, date: new Date().toISOString(), source: "manual change" });
     save(); render();
   };
+  $("#saveGoal").onclick = () => {
+    const g = Math.round(+$("#newGoal").value);
+    if (!(g > state.max)) { toast(`Set a target above your current max of ${state.max} lb.`); return; }
+    state.goal = g; save(); render(); toast(`Goal set to ${g} lb.`);
+  };
+  document.querySelectorAll("[data-len]").forEach(b => b.onclick = () => {
+    // Can't end before the block you're in (or, once finished, before the weeks already done)
+    const finished = state.block > totalBlocks();
+    const minWeeks = (state.block - 1) * BLOCK_WEEKS + (finished ? 0 : BLOCK_WEEKS);
+    const w = +b.dataset.len;
+    if (w < minWeeks) { toast(`You've reached week ${Math.min(minWeeks, overallWeek(1))}, so the shortest option is ${minWeeks} weeks.`); return; }
+    state.weeks = w; save(); render(); toast(`Program length set to ${w} weeks.`);
+  });
   $("#copyBk").onclick = async () => {
     const data = JSON.stringify(state);
     try { await navigator.clipboard.writeText(data); toast("Backup copied. Paste it into Notes."); }

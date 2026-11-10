@@ -8,6 +8,11 @@
 
 ## Phase 2: Install
 - [x] Wi-Fi test (phone never reached the Mac; replaced by private Claude link)
-- [~] Test via private Claude link: https://claude.ai/artifact/PHyRuymfSKJUa76J3FJABL
-- [ ] Choose permanent hosting
-- [ ] Install on both iPhones
+- [x] Private Claude link test: https://claude.ai/artifact/PHyRuymfSKJUa76J3FJABL
+- [x] Published: https://jkobs.github.io/bench-tracker/ (repo jkobs/bench-tracker)
+- [~] Install on both iPhones
+
+## Phase 3: Goal and length
+- [x] Target weight and program length (4, 8, 12 or 16 weeks) with outlook estimate
+- [x] Local tests: 16 + 16 checks pass
+- [x] Pushed live
